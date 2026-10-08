@@ -2,7 +2,7 @@
 
 ## Prepared workflows
 
-`codemagic.yaml` pins Flutter 3.29.3 and Xcode 16.4 on a cloud Mac. Builds run
+`codemagic.yaml` pins Flutter 3.29.3 and Xcode 26.2 on a cloud Mac. Builds run
 manually; the configuration does not automatically upload to TestFlight or an app store.
 
 - **ios-compile:** compiles the obfuscated iOS app without Apple signing. The
