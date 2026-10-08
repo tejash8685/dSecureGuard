@@ -1,0 +1,78 @@
+# Use DharmajFlutter as the Git repository root.
+# Signed builds require the matching Apple certificate and Ad Hoc profile in Codemagic.
+workflows:
+  ios-compile:
+    name: D SecureGuard iOS compile without signing
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: 3.29.3
+      xcode: 16.4
+      cocoapods: default
+      vars:
+        API_URL: http://192.168.1.110:8080/api
+    scripts:
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Install iOS dependencies
+        script: |
+          set -euo pipefail
+          cd ios
+          pod install
+      - name: Compile protected iOS app
+        script: |
+          set -euo pipefail
+          flutter build ios --release --no-codesign --obfuscate \
+            --split-debug-info=artifacts/ios-symbols \
+            --dart-define="API_URL=$API_URL"
+          cd build/ios/iphoneos
+          ditto -c -k --keepParent Runner.app Runner-unsigned.zip
+    artifacts:
+      - build/ios/iphoneos/Runner-unsigned.zip
+      - artifacts/ios-symbols/**
+      - build/ios/**/*.dSYM/**
+
+  ios-device:
+    name: D SecureGuard iPhone signed Ad Hoc IPA
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+    environment:
+      flutter: 3.29.3
+      xcode: 16.4
+      cocoapods: default
+      ios_signing:
+        distribution_type: ad_hoc
+        # Replace with your registered Apple bundle ID before running this workflow.
+        bundle_identifier: com.example.dharmajFlutter
+      vars:
+        # Must match ios_signing.bundle_identifier above.
+        IOS_BUNDLE_ID: com.example.dharmajFlutter
+        API_URL: http://192.168.1.110:8080/api
+    scripts:
+      - name: Set registered bundle ID
+        script: |
+          set -euo pipefail
+          ruby -e 'p = "ios/Runner.xcodeproj/project.pbxproj"; File.write(p, File.read(p).gsub("com.example.dharmajFlutter", ENV.fetch("IOS_BUNDLE_ID")))'
+      - name: Install Flutter dependencies
+        script: flutter pub get
+      - name: Install iOS dependencies
+        script: |
+          set -euo pipefail
+          cd ios
+          pod install
+      - name: Apply uploaded signing profiles
+        script: |
+          set -euo pipefail
+          xcode-project use-profiles
+      - name: Build protected signed IPA
+        script: |
+          set -euo pipefail
+          flutter build ipa --release --obfuscate \
+            --split-debug-info=artifacts/ios-symbols \
+            --dart-define="API_URL=$API_URL" \
+            --build-number="$((BUILD_NUMBER + 1))" \
+            --export-options-plist="$HOME/export_options.plist"
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - artifacts/ios-symbols/**
+      - build/ios/archive/**/*.dSYM/**
