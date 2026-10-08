@@ -26,6 +26,45 @@ final dio = Dio(
 );
 
 class ApiService {
+  Future<Map<String, dynamic>> loginDeviceInfo() async {
+    // Browsers/mobile platforms do not expose PC BIOS, disk serials, or hardware MACs.
+    final info = <String, dynamic>{
+      'platform':
+          isAndroidDevice
+              ? 'Android'
+              : isIosDevice
+              ? 'iOS'
+              : 'Web',
+      'applicationVersion': '1.0.0',
+    };
+    await fingerprint('DHARMAJ-ACCOUNT-LOGIN');
+    info['installationID'] = await storage.read(key: 'installationId');
+    if (isAndroidDevice) {
+      final device = await DeviceInfoPlugin().androidInfo;
+      info.addAll({
+        'operatingSystem': 'Android ${device.version.release}',
+        'model': device.model,
+        'manufacturer': device.manufacturer,
+        'androidID': await deviceChannel.invokeMethod<String>('androidId'),
+      });
+    } else if (isIosDevice) {
+      final device = await DeviceInfoPlugin().iosInfo;
+      info.addAll({
+        'operatingSystem': '${device.systemName} ${device.systemVersion}',
+        'model': device.utsname.machine,
+        'manufacturer': 'Apple',
+      });
+    } else if (kIsWeb) {
+      final device = await DeviceInfoPlugin().webBrowserInfo;
+      final agent = device.userAgent ?? '';
+      info.addAll({
+        'operatingSystem': device.platform,
+        'model': agent.length > 200 ? agent.substring(0, 200) : agent,
+      });
+    }
+    return info;
+  }
+
   Future<String> fingerprint(String productCode) async {
     var installation = await storage.read(key: 'installationId');
     if (installation == null) {

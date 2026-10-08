@@ -25,7 +25,7 @@ class MainActivity : FlutterActivity() {
         if (requestCode == 7301) {
             val pending = pendingMonitor; pendingMonitor = null
             if (pending != null && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {
-                try { ActivationMonitorService.start(this, pending["token"] as String, pending["apiUrl"] as String, pending["expiresAt"] as Long) }
+                try { ActivationMonitorService.start(this, pending["token"] as String, pending["apiUrl"] as String, pending["expiresAt"] as Long, pending["machineId"] as String) }
                 catch (_: Exception) { /* Reopening the app allows another foreground start attempt. */ }
             }
         }
@@ -69,12 +69,13 @@ class MainActivity : FlutterActivity() {
                         val token = call.argument<String>("token") ?: ""
                         val url = call.argument<String>("apiUrl") ?: ""
                         val expires = call.argument<Number>("expiresAt")?.toLong() ?: 0
+                        val machineId = call.argument<String>("machineId") ?: ""
                         if (Build.VERSION.SDK_INT >= 33 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-                            pendingMonitor = mapOf("token" to token, "apiUrl" to url, "expiresAt" to expires)
+                            pendingMonitor = mapOf("token" to token, "apiUrl" to url, "expiresAt" to expires, "machineId" to machineId)
                             requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7301)
                             result.success(false)
                         } else {
-                            ActivationMonitorService.start(this, token, url, expires)
+                            ActivationMonitorService.start(this, token, url, expires, machineId)
                             result.success(true)
                         }
                     } catch (_: Exception) { result.error("MONITOR_UNAVAILABLE", "Background alerts could not start. Reopen the app and try again.", null) }

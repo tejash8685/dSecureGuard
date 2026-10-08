@@ -106,6 +106,7 @@ class AuthSession extends ChangeNotifier {
         'password': password,
         'machineId': machineId,
         'machineName': isIosDevice ? 'iOS device' : 'Android device',
+        'device': await ApiService().loginDeviceInfo(),
       },
     );
     final data = Map<String, dynamic>.from(result as Map);
@@ -174,7 +175,14 @@ class AuthSession extends ChangeNotifier {
         options: Options(
           method: method,
           headers:
-              authenticated ? {'Authorization': 'Bearer $requestToken'} : {},
+              authenticated
+                  ? {
+                    'Authorization': 'Bearer $requestToken',
+                    'X-Device-ID': await ApiService().fingerprint(
+                      'DHARMAJ-ACCOUNT-LOGIN',
+                    ),
+                  }
+                  : {},
         ),
       );
       final envelope = response.data;

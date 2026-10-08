@@ -7,6 +7,7 @@ import 'api_service.dart';
 import 'auth_session.dart';
 import 'record_editor.dart';
 import 'ui_helpers.dart';
+import 'device_registry_page.dart';
 
 class ManagementPage extends StatefulWidget {
   const ManagementPage({super.key, required this.session});
@@ -86,12 +87,15 @@ class _ManagementPageState extends State<ManagementPage>
   Future<void> startBackgroundAlerts() async {
     if (!isAndroidDevice || !widget.session.signedIn) return;
     try {
-      final started = await deviceChannel
-          .invokeMethod<bool>('startRequestMonitor', {
-            'token': widget.session.token,
-            'apiUrl': apiBase,
-            'expiresAt': widget.session.expiresAt!.millisecondsSinceEpoch,
-          });
+      final started = await deviceChannel.invokeMethod<bool>(
+        'startRequestMonitor',
+        {
+          'token': widget.session.token,
+          'apiUrl': apiBase,
+          'machineId': await ApiService().fingerprint('DHARMAJ-ACCOUNT-LOGIN'),
+          'expiresAt': widget.session.expiresAt!.millisecondsSinceEpoch,
+        },
+      );
       if (started != true && mounted) {
         notice('Allow notifications to receive alerts after closing the app.');
       }
@@ -902,6 +906,18 @@ class _ManagementPageState extends State<ManagementPage>
               title: const Text('Activate this device'),
               trailing: const Icon(Icons.chevron_right),
               onTap: openDevice,
+            ),
+            ListTile(
+              leading: const Icon(Icons.devices_outlined),
+              title: const Text('Registered devices'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap:
+                  () => Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder:
+                          (_) => DeviceRegistryPage(session: widget.session),
+                    ),
+                  ),
             ),
             if (isAndroidDevice)
               ListTile(

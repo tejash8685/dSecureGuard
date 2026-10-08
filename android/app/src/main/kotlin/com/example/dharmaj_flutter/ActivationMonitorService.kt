@@ -28,12 +28,13 @@ class ActivationMonitorService : Service() {
     companion object {
         private const val MONITOR_ID = 7310
         @Volatile var activityVisible = false
-        fun start(context: Context, token: String, apiUrl: String, expiresAt: Long) {
+        fun start(context: Context, token: String, apiUrl: String, expiresAt: Long, machineId: String) {
             val uri = URI(apiUrl)
             require(uri.scheme in listOf("http", "https") && !uri.host.isNullOrBlank() && uri.userInfo == null && uri.query == null && uri.fragment == null)
-            require(token.isNotBlank() && expiresAt > System.currentTimeMillis())
+            require(token.isNotBlank() && machineId.isNotBlank() && expiresAt > System.currentTimeMillis())
             val intent = Intent(context, ActivationMonitorService::class.java)
                 .putExtra("token", token).putExtra("apiUrl", apiUrl.trimEnd('/')).putExtra("expiresAt", expiresAt)
+                .putExtra("machineId", machineId)
             if (Build.VERSION.SDK_INT >= 26) context.startForegroundService(intent) else context.startService(intent)
         }
         fun stop(context: Context) {
@@ -62,10 +63,11 @@ class ActivationMonitorService : Service() {
             if (!token.isNullOrEmpty()) {
                 if (session?.optString("token") != token) session = JSONObject().put("seen", JSONArray()).put("initialized", false)
                 session!!.put("token", token).put("apiUrl", intent.getStringExtra("apiUrl"))
+                    .put("machineId", intent.getStringExtra("machineId"))
                     .put("expiresAt", intent.getLongExtra("expiresAt", 0))
                 MonitorSessionStore.write(this, session)
             }
-            if (session == null || session.optLong("expiresAt") <= System.currentTimeMillis()) {
+            if (session == null || session.optString("machineId").isBlank() || session.optLong("expiresAt") <= System.currentTimeMillis()) {
                 stopMonitoring(true); return START_NOT_STICKY
             }
             val current = ++generation
@@ -93,6 +95,7 @@ class ActivationMonitorService : Service() {
             connection.readTimeout = 5000
             connection.instanceFollowRedirects = false
             connection.setRequestProperty("Authorization", "Bearer $token")
+            connection.setRequestProperty("X-Device-ID", session.getString("machineId"))
             val status = connection.responseCode
             if (status == 401) {
                 main.post { if (current == generation) stopMonitoring(true) }; return
